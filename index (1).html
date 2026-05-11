@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cyclus & Gezondheid Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --mens: #C97B7B; --fol: #7BAF8A; --ovu: #5BA89A; --lut: #6E8FB8; --pmdd: #9E6E99;
+    --mens-light: #F5E8E8; --fol-light: #E8F2EB; --ovu-light: #E3F3F0; --lut-light: #E5EDF7; --pmdd-light: #F2EAF5;
+    --bg: #FFFFFF; --bg2: #F7F6F3; --bg3: #EFEDE8;
+    --text: #1A1A18; --text2: #6B6B67; --text3: #A0A09C;
+    --border: rgba(0,0,0,0.10); --border2: rgba(0,0,0,0.18);
+    --radius: 12px; --radius-sm: 8px;
+    --success: #3A8A5A; --danger: #C0392B;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#1C1C1A; --bg2:#252523; --bg3:#2E2E2C;
+      --text:#F0EFE8; --text2:#A0A09A; --text3:#6A6A65;
+      --border:rgba(255,255,255,0.10); --border2:rgba(255,255,255,0.18);
+      --mens-light:#3A2020; --fol-light:#1E2E22; --ovu-light:#1A2C28; --lut-light:#1E2535; --pmdd-light:#2A1F2E;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .container { max-width: 680px; margin: 0 auto; padding: 0 16px 80px; }
+
+  /* BOOKMARK BANNER */
+  .bookmark-banner {
+    background: var(--bg2); border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 10px 14px;
+    font-size: 12px; color: var(--text2); line-height: 1.6;
+    margin-bottom: 1rem; display: flex; align-items: flex-start; gap: 10px;
+  }
+  .bookmark-banner .bico { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .bookmark-banner strong { color: var(--text); }
+  .bookmark-banner .dismiss { margin-left: auto; cursor: pointer; font-size: 14px; color: var(--text3); flex-shrink: 0; padding-left: 8px; }
+
+  /* SAVE INDICATOR */
+  .url-save-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: var(--bg); border-top: 0.5px solid var(--border);
+    padding: 10px 16px; display: flex; align-items: center; gap: 12px;
+    font-size: 12px; color: var(--text2);
+  }
+  .url-save-bar .usb-inner { max-width: 680px; margin: 0 auto; width: 100%; display: flex; align-items: center; gap: 10px; }
+  .copy-url-btn {
+    background: var(--text); color: var(--bg); border: none;
+    padding: 7px 16px; border-radius: 100px; font-size: 12px;
+    font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 500; flex-shrink: 0;
+  }
+  .copy-url-btn:hover { opacity: .8; }
+  .url-status { font-size: 11px; color: var(--success); display: none; }
+
+  /* SETUP */
+  .setup-wrap { padding: 3rem 0 2rem; }
+  .setup-header { font-family: 'DM Serif Display', serif; font-size: 34px; color: var(--text); line-height: 1.15; margin-bottom: 8px; }
+  .setup-sub { font-size: 14px; color: var(--text2); margin-bottom: 2.5rem; line-height: 1.6; }
+  .setup-fields { display: grid; gap: 16px; max-width: 380px; }
+  .field-group { display: flex; flex-direction: column; gap: 6px; }
+  .field-label { font-size: 11px; font-weight: 500; color: var(--text2); letter-spacing: .06em; text-transform: uppercase; }
+  input[type=date], input[type=number], input[type=text] {
+    width: 100%; padding: 10px 14px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+    font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color .15s;
+  }
+  input:focus { border-color: var(--text2); }
+  .start-btn {
+    margin-top: 1.75rem; background: var(--text); color: var(--bg);
+    border: none; padding: 13px 32px; border-radius: 100px;
+    font-size: 15px; font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 500;
+  }
+  .start-btn:hover { opacity: .8; }
+
+  /* NAV */
+  .nav { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 0.5px solid var(--border); margin-bottom: 1.5rem; }
+  .tabs { display: flex; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { flex-shrink: 0; font-size: 13px; font-weight: 500; color: var(--text2); padding: 12px 14px; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all .15s; }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+
+  /* OVERVIEW */
+  .cycle-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 8px; }
+  .cycle-title { font-family: 'DM Serif Display', serif; font-size: 22px; color: var(--text); }
+  .cycle-sub { font-size: 12px; color: var(--text2); margin-top: 3px; }
+  .today-phase { font-size: 12px; font-weight: 500; padding: 5px 13px; border-radius: 100px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 1.25rem; }
+  .leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .leg-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .phase-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 1.5rem; }
+  .day-dot { border-radius: 8px; padding: 6px 2px; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 2px; border: 1.5px solid transparent; transition: transform .1s; min-height: 50px; justify-content: center; }
+  .day-dot:hover { transform: translateY(-2px); }
+  .day-dot.today { border-color: var(--text); }
+  .day-dot.selected { box-shadow: 0 0 0 2px var(--text2); }
+  .day-dot .dn { font-size: 11px; font-weight: 500; }
+  .day-dot .di { font-size: 13px; min-height: 16px; line-height: 1; }
+
+  /* INFO CARD */
+  .phase-info { border-radius: var(--radius); padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+  .phase-info-title { font-size: 15px; font-weight: 500; margin-bottom: 10px; }
+  .tip-item { display: flex; gap: 8px; margin-bottom: 7px; align-items: flex-start; }
+  .tip-ico { font-size: 13px; min-width: 18px; }
+  .tip-txt { font-size: 12px; color: var(--text2); line-height: 1.55; }
+  .hist-tag { font-size: 10px; padding: 2px 7px; border-radius: 100px; background: var(--bg3); color: var(--text2); display: inline-block; margin: 2px; }
+
+  /* LOG FORM */
+  .day-card { border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--bg); overflow: hidden; margin-bottom: 1rem; }
+  .day-card-head { padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 0.5px solid var(--border); }
+  .day-card-title { font-family: 'DM Serif Display', serif; font-size: 18px; }
+  .day-card-sub { font-size: 12px; color: var(--text2); margin-top: 2px; }
+  .phase-pill { font-size: 11px; font-weight: 500; padding: 4px 11px; border-radius: 100px; flex-shrink: 0; }
+  .day-card-body { padding: 1.25rem; }
+  .form-section { margin-bottom: 1.25rem; }
+  .form-section-title { font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--text2); margin-bottom: 8px; }
+  .mood-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mood-btn { font-size: 22px; padding: 6px 10px; background: transparent; border: 0.5px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; transition: all .1s; opacity: .45; }
+  .mood-btn:hover { opacity: 1; }
+  .mood-btn.active { opacity: 1; background: var(--bg2); border-color: var(--border2); transform: scale(1.1); }
+  .sym-cloud { display: flex; flex-wrap: wrap; gap: 5px; }
+  .sym-tag { font-size: 12px; padding: 5px 12px; border-radius: 100px; border: 0.5px solid var(--border2); cursor: pointer; background: transparent; color: var(--text2); transition: all .12s; font-family: 'DM Sans', sans-serif; }
+  .sym-tag:hover { background: var(--bg2); }
+  .sym-tag.active { background: var(--text); color: var(--bg); border-color: transparent; }
+  .slider-row { display: grid; grid-template-columns: 100px 1fr 32px; align-items: center; gap: 10px; margin-bottom: 9px; }
+  .slider-label { font-size: 12px; color: var(--text2); }
+  .slider-val { font-size: 13px; font-weight: 500; text-align: right; }
+  input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; border-radius: 2px; background: var(--bg3); outline: none; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--text); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--text); cursor: pointer; border: none; }
+  textarea { width: 100%; padding: 10px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: transparent; color: var(--text); font-size: 13px; font-family: 'DM Sans', sans-serif; resize: vertical; min-height: 75px; line-height: 1.55; outline: none; }
+  textarea::placeholder { color: var(--text3); }
+  .med-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .med-check { display: flex; align-items: center; gap: 8px; padding: 8px 11px; border: 0.5px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; font-size: 12px; color: var(--text2); transition: all .1s; }
+  .med-check:hover { background: var(--bg2); }
+  .med-check.active { background: var(--bg2); color: var(--text); border-color: var(--border2); }
+  .mc-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); flex-shrink: 0; }
+  .med-check.active .mc-dot { background: var(--text); }
+  .save-row { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 0.5px solid var(--border); }
+  .saved-label { font-size: 12px; color: var(--success); display: none; }
+  .save-btn { background: var(--text); color: var(--bg); border: none; padding: 10px 22px; border-radius: 100px; font-size: 13px; font-family: 'DM Sans', sans-serif; cursor: pointer; font-weight: 500; }
+  .nav-day-btns { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  .nav-day-btn { background: transparent; border: 0.5px solid var(--border2); border-radius: 100px; padding: 6px 14px; font-size: 12px; cursor: pointer; color: var(--text2); font-family: 'DM Sans', sans-serif; }
+  .nav-day-btn:hover { background: var(--bg2); }
+  .nav-day-btn.active-nav { background: var(--text); color: var(--bg); border-color: transparent; }
+
+  /* INSIGHTS */
+  .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.25rem; }
+  .stat-card { background: var(--bg2); border-radius: var(--radius-sm); padding: 14px 16px; }
+  .stat-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+  .stat-val { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--text); }
+  .stat-sub { font-size: 11px; color: var(--text2); margin-top: 2px; }
+  .chart-wrap { border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .chart-title { font-size: 13px; font-weight: 500; margin-bottom: 14px; }
+  .bar-chart { display: flex; align-items: flex-end; gap: 4px; height: 90px; }
+  .bar { flex: 1; border-radius: 4px 4px 0 0; min-height: 4px; }
+  .bar-labels { display: flex; gap: 4px; margin-top: 5px; }
+  .bar-lbl { flex: 1; text-align: center; font-size: 9px; color: var(--text2); }
+  .freq-list { display: flex; flex-direction: column; gap: 7px; }
+  .freq-item { display: flex; align-items: center; gap: 8px; }
+  .freq-name { font-size: 12px; color: var(--text2); width: 140px; flex-shrink: 0; }
+  .freq-bar-wrap { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; }
+  .freq-bar { height: 100%; border-radius: 3px; background: var(--text); }
+  .freq-count { font-size: 11px; color: var(--text2); width: 24px; text-align: right; }
+
+  /* HISTORY */
+  .hist-list { display: flex; flex-direction: column; gap: 8px; }
+  .hist-item { border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; cursor: pointer; transition: background .1s; }
+  .hist-item:hover { background: var(--bg2); }
+  .hist-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+  .hist-date { font-size: 13px; font-weight: 500; }
+  .hist-mood { font-size: 16px; }
+  .hist-note { font-size: 11px; color: var(--text2); margin-top: 5px; font-style: italic; }
+
+  /* SETTINGS */
+  .settings-section { margin-bottom: 1.75rem; }
+  .settings-title { font-size: 11px; font-weight: 500; letter-spacing: .05em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+  .settings-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 0.5px solid var(--border); font-size: 13px; gap: 12px; }
+  .settings-row input { width: 140px; text-align: right; }
+  .reset-btn { background: transparent; border: 0.5px solid var(--danger); color: var(--danger); padding: 9px 18px; border-radius: var(--radius-sm); font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .empty-state { text-align: center; padding: 3rem 1rem; color: var(--text2); font-size: 14px; line-height: 1.6; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+
+  @media (max-width: 480px) {
+    .insights-grid { grid-template-columns: 1fr; }
+    .med-grid { grid-template-columns: 1fr; }
+    .slider-row { grid-template-columns: 80px 1fr 28px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- SETUP SCREEN -->
+  <div class="screen active" id="screenSetup">
+    <div class="setup-wrap">
+      <div class="setup-header">Cyclus &<br><em>Gezondheid</em><br>Tracker</div>
+      <div class="setup-sub">Persoonlijke dagtracker voor PMDD,<br>artritis psoriatica &amp; perimenopauze.</div>
+      <div class="setup-fields">
+        <div class="field-group">
+          <div class="field-label">Eerste dag laatste menstruatie</div>
+          <input type="date" id="s-start">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Gemiddelde cycluslengte (dagen)</div>
+          <input type="number" id="s-len" value="28" min="21" max="42" style="width:100px;">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Naam (optioneel)</div>
+          <input type="text" id="s-name" placeholder="bijv. Emma">
+        </div>
+      </div>
+      <button class="start-btn" onclick="startApp()">Start tracker →</button>
+    </div>
+  </div>
+
+  <!-- MAIN SCREEN -->
+  <div class="screen" id="screenMain">
+
+    <!-- BOOKMARK BANNER -->
+    <div class="bookmark-banner" id="bookmarkBanner">
+      <span class="bico">🔖</span>
+      <div>
+        <strong>Sla deze pagina op als bladwijzer</strong> zodat je data altijd bewaard blijft.<br>
+        Na elke opslag: druk op <strong>Ctrl+D</strong> (Windows) of <strong>Cmd+D</strong> (Mac) om de bladwijzer bij te werken.
+        Op telefoon: tik op ⋮ → "Bladwijzer toevoegen".
+      </div>
+      <span class="dismiss" onclick="dismissBanner()">✕</span>
+    </div>
+
+    <div class="nav">
+      <div class="tabs">
+        <div class="tab active" onclick="showTab('overview')">Cyclus</div>
+        <div class="tab" onclick="showTab('log')">Dag invullen</div>
+        <div class="tab" onclick="showTab('insights')">Inzichten</div>
+        <div class="tab" onclick="showTab('history')">Logboek</div>
+        <div class="tab" onclick="showTab('settings')">Instellingen</div>
+      </div>
+    </div>
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview">
+      <div class="cycle-header">
+        <div>
+          <div class="cycle-title" id="ov-title"></div>
+          <div class="cycle-sub" id="ov-sub"></div>
+        </div>
+        <div class="today-phase" id="ov-pill"></div>
+      </div>
+      <div class="legend">
+        <div class="leg"><div class="leg-dot" style="background:var(--mens)"></div>Menstruatie</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--fol)"></div>Folliculair</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--ovu)"></div>Ovulatie</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--lut)"></div>Luteaal</div>
+        <div class="leg"><div class="leg-dot" style="background:var(--pmdd)"></div>PMDD-venster</div>
+      </div>
+      <div class="phase-grid" id="phaseGrid"></div>
+      <div id="ovDayInfo"></div>
+    </div>
+
+    <!-- LOG -->
+    <div id="tab-log" style="display:none;">
+      <div class="nav-day-btns" id="navDayBtns"></div>
+      <div class="day-card">
+        <div class="day-card-head">
+          <div>
+            <div class="day-card-title" id="log-title">Dag invullen</div>
+            <div class="day-card-sub" id="log-sub"></div>
+          </div>
+          <div class="phase-pill" id="log-pill"></div>
+        </div>
+        <div class="day-card-body">
+          <div class="form-section">
+            <div class="form-section-title">Stemming</div>
+            <div class="mood-row" id="moodRow">
+              <button class="mood-btn" data-v="1" onclick="setMood(1)">😔</button>
+              <button class="mood-btn" data-v="2" onclick="setMood(2)">😟</button>
+              <button class="mood-btn" data-v="3" onclick="setMood(3)">😐</button>
+              <button class="mood-btn" data-v="4" onclick="setMood(4)">🙂</button>
+              <button class="mood-btn" data-v="5" onclick="setMood(5)">😄</button>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Energieniveau</div>
+            <div class="mood-row" id="energyRow">
+              <button class="mood-btn" data-v="1" onclick="setEnergy(1)">🪫</button>
+              <button class="mood-btn" data-v="2" onclick="setEnergy(2)">😴</button>
+              <button class="mood-btn" data-v="3" onclick="setEnergy(3)">😌</button>
+              <button class="mood-btn" data-v="4" onclick="setEnergy(4)">⚡</button>
+              <button class="mood-btn" data-v="5" onclick="setEnergy(5)">🔥</button>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Pijn &amp; vermoeidheid (0–10)</div>
+            <div class="slider-row">
+              <span class="slider-label">Gewrichtspijn</span>
+              <input type="range" min="0" max="10" value="0" id="sl-joint" oninput="document.getElementById('jv').textContent=this.value">
+              <span class="slider-val" id="jv">0</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Vermoeidheid</span>
+              <input type="range" min="0" max="10" value="0" id="sl-fat" oninput="document.getElementById('fv').textContent=this.value">
+              <span class="slider-val" id="fv">0</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Hoofdpijn</span>
+              <input type="range" min="0" max="10" value="0" id="sl-head" oninput="document.getElementById('hv').textContent=this.value">
+              <span class="slider-val" id="hv">0</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Slaapkwaliteit</span>
+              <input type="range" min="1" max="10" value="5" id="sl-sleep" oninput="document.getElementById('sv').textContent=this.value">
+              <span class="slider-val" id="sv">5</span>
+            </div>
+            <div class="slider-row">
+              <span class="slider-label">Productiviteit</span>
+              <input type="range" min="1" max="10" value="5" id="sl-prod" oninput="document.getElementById('pv').textContent=this.value">
+              <span class="slider-val" id="pv">5</span>
+            </div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Symptomen</div>
+            <div class="sym-cloud" id="symCloud"></div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Medicatie vandaag ingenomen</div>
+            <div class="med-grid" id="medGrid"></div>
+          </div>
+          <div class="form-section">
+            <div class="form-section-title">Notitie</div>
+            <textarea id="noteArea" placeholder="Hoe was je dag? Bijzonderheden, triggers, medicatie-effect, artritis-flare..."></textarea>
+          </div>
+          <div class="save-row">
+            <span class="saved-label" id="savedLabel">✓ Opgeslagen — update je bladwijzer (Ctrl+D)</span>
+            <button class="save-btn" onclick="saveLog()">Opslaan</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INSIGHTS -->
+    <div id="tab-insights" style="display:none;"><div id="insightsContent"></div></div>
+
+    <!-- HISTORY -->
+    <div id="tab-history" style="display:none;"><div id="histContent"></div></div>
+
+    <!-- SETTINGS -->
+    <div id="tab-settings" style="display:none;">
+      <div class="settings-section">
+        <div class="settings-title">Cyclusinstellingen</div>
+        <div class="settings-row">
+          <span>Startdatum menstruatie</span>
+          <input type="date" id="set-start" onchange="updateSetting('start',this.value)">
+        </div>
+        <div class="settings-row">
+          <span>Cycluslengte (dagen)</span>
+          <input type="number" min="21" max="42" id="set-len" onchange="updateSetting('len',parseInt(this.value))" style="width:70px;">
+        </div>
+        <div class="settings-row">
+          <span>Naam</span>
+          <input type="text" id="set-name" onchange="updateSetting('name',this.value)" style="width:140px;" placeholder="optioneel">
+        </div>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Bladwijzer bijwerken</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px;">
+          Na het opslaan van je dag staat alle data in de URL van deze pagina.<br>
+          Werk je bladwijzer bij met <strong>Ctrl+D</strong> (Windows) of <strong>Cmd+D</strong> (Mac) om de nieuwste data op te slaan.
+        </div>
+        <button class="save-btn" style="font-size:13px;" onclick="copyUrlToClipboard()">Kopieer huidige URL</button>
+        <span id="copiedMsg" style="font-size:12px;color:var(--success);margin-left:10px;display:none;">Gekopieerd!</span>
+      </div>
+      <div class="settings-section">
+        <div class="settings-title">Data wissen</div>
+        <button class="reset-btn" onclick="resetAll()">Alle data verwijderen</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BOTTOM SAVE BAR -->
+<div class="url-save-bar" id="urlSaveBar" style="display:none;">
+  <div class="usb-inner">
+    <span style="flex:1;">💾 Data opgeslagen in URL — werk je bladwijzer bij</span>
+    <button class="copy-url-btn" onclick="copyUrlToClipboard()">Kopieer URL</button>
+    <span class="url-status" id="urlStatus">Gekopieerd ✓</span>
+  </div>
+</div>
+
+<script>
+const SYMPTOMS = [
+  'Krampen','Opgeblazen','Hoofdpijn','Rugpijn','Gewrichtspijn','Kaakklemmen','Huiduitslag','Psoriasis opvlieger','Acne / huidproblemen',
+  'Prikkelbaarheid','Angst','Somberheid','Huilbuien','Concentratieproblemen','Brainfogg',
+  'Slecht geslapen','Hartkloppingen','Opvliegers','Nachtzweten','Misselijkheid',
+  'Eetlust verhoogd','Eetlust verlaagd','Overprikkeld','Sociale terugtrekking'
+];
+const MEDS = ['Methylfenidaat kort','Methylfenidaat lang','Citalopram','Oxazepam','Cosentyx'];
+const MOODS = ['','😔','😟','😐','🙂','😄'];
+const ENERGIES = ['','🪫','😴','😌','⚡','🔥'];
+const PHASE_LABELS = { mens:'Menstruatie', fol:'Folliculaire fase', ovu:'Ovulatie', lut:'Vroeg luteaal', pmdd:'PMDD-venster' };
+const PHASE_TIPS = {
+  mens:[
+    {i:'💊',t:'Methylfenidaat werkt mogelijk minder effectief — lage oestrogeenspiegels verminderen dopamine. Plan lichte taken.'},
+    {i:'🦴',t:'Artritis psoriatica kan opspelen door lage hormonen + prostaglandinen. Warmte, rust, check Cosentyx-timing.'},
+    {i:'😴',t:'Herstelweek. Slaap prioriteren — oxazepam alleen bij echte slaapnood.'},
+    {i:'🥗',t:'Anti-inflammatoir eten (omega-3, groenten) ondersteunt zowel herstel als gewrichten.'},
+  ],
+  fol:[
+    {i:'🧠',t:'Beste fase voor methylfenidaat. Oestrogeen versterkt dopamine. Ideaal voor concentratie, planning en afspraken.'},
+    {i:'🌿',t:'Energie neemt toe — goed moment voor beweging en activiteit.'},
+    {i:'💪',t:'Citalopram gestopt (begin cyclus). Stemming is doorgaans het meest stabiel.'},
+    {i:'📅',t:'Plan ziekenhuisbezoeken, moeilijke gesprekken en grote besluiten in deze fase.'},
+  ],
+  ovu:[
+    {i:'⚡',t:'Energie en sociaal vermogen zijn op hun hoogst.'},
+    {i:'💊',t:'Let op: oestrogeenpiek kan methylfenidaat-effect versterken. Mogelijk meer alertheid.'},
+    {i:'🦴',t:'Oestrogeen heeft anti-inflammatoir effect — gewrichten doen het vaak beter.'},
+    {i:'😴',t:'Slaap is doorgaans het beste nu. Gebruik dit herstelvermogen.'},
+  ],
+  lut:[
+    {i:'🧠',t:'Progesteron dempt dopamine. Methylfenidaat voelt minder scherp. Verwachtingen aanpassen is geen falen.'},
+    {i:'😴',t:'Vermoeidheid neemt toe. Progesteron heeft sederend effect.'},
+    {i:'🦴',t:'Naarmate oestrogeen daalt kunnen gewrichtsklachten terugkeren.'},
+    {i:'🍽️',t:'Eetlust stijgt — normaal. Blijf anti-inflammatoir eten.'},
+  ],
+  pmdd:[
+    {i:'💊',t:'Citalopram actief. Consistent innemen is cruciaal voor het intermitterende protocol.'},
+    {i:'😤',t:'Emotionele reactiviteit is hoog. Dit is hormonaal — niet wie jij bent als persoon.'},
+    {i:'🛌',t:'Oxazepam: slaap verslechtert door dalend progesteron. Alleen op echt moeilijke nachten.'},
+    {i:'🦴',t:'Combinatie van lage hormonen + stressgevoeligheid kan artritis-flare uitlokken. Rust prioriteren.'},
+    {i:'👧',t:'Lichte avonden thuis plannen. Prikkels verminderen.'},
+    {i:'🔔',t:'In perimenopauze kunnen PMDD-klachten intensiveren. Bijhouden voor je gynaecoloog.'},
+  ],
+};
+
+let cfg = {};
+let logs = {};
+let currentLogDay = null;
+let currentMood = 0, currentEnergy = 0;
+let currentSyms = new Set();
+let currentMeds = new Set();
+
+// ── URL DATA PERSISTENCE ──────────────────────────────────────────
+function encodeData() {
+  try {
+    const data = { cfg, logs };
+    const json = JSON.stringify(data);
+    const encoded = btoa(unescape(encodeURIComponent(json)));
+    return encoded;
+  } catch(e) { return ''; }
+}
+
+function decodeData(encoded) {
+  try {
+    const json = decodeURIComponent(escape(atob(encoded)));
+    return JSON.parse(json);
+  } catch(e) { return null; }
+}
+
+function saveToUrl() {
+  const encoded = encodeData();
+  const newUrl = window.location.pathname + '#' + encoded;
+  window.history.replaceState(null, '', newUrl);
+  document.getElementById('urlSaveBar').style.display = 'flex';
+}
+
+function loadFromUrl() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return false;
+  const data = decodeData(hash);
+  if (data && data.cfg && data.cfg.start) {
+    cfg = data.cfg;
+    logs = data.logs || {};
+    return true;
+  }
+  return false;
+}
+
+function copyUrlToClipboard() {
+  navigator.clipboard.writeText(window.location.href).then(() => {
+    const s = document.getElementById('urlStatus');
+    const c = document.getElementById('copiedMsg');
+    s.style.display = 'inline';
+    if(c) c.style.display = 'inline';
+    setTimeout(() => { s.style.display = 'none'; if(c) c.style.display = 'none'; }, 2500);
+  });
+}
+
+function dismissBanner() {
+  document.getElementById('bookmarkBanner').style.display = 'none';
+}
+// ─────────────────────────────────────────────────────────────────
+
+function getPhase(d) {
+  const len = cfg.len || 28;
+  if (d <= 5) return 'mens';
+  if (d <= len - 14) return 'fol';
+  if (d <= len - 11) return 'ovu';
+  if (d <= len - 7) return 'lut';
+  return 'pmdd';
+}
+
+function getDayNum(date) {
+  const start = new Date(cfg.start); start.setHours(0,0,0,0);
+  const d = new Date(date); d.setHours(0,0,0,0);
+  const diff = Math.floor((d - start) / 86400000);
+  const len = cfg.len || 28;
+  return ((diff % len) + len) % len + 1;
+}
+
+function phColor(ph) { return getComputedStyle(document.documentElement).getPropertyValue('--'+ph).trim(); }
+function phLight(ph) { return getComputedStyle(document.documentElement).getPropertyValue('--'+ph+'-light').trim(); }
+
+function startApp() {
+  const s = document.getElementById('s-start').value;
+  if (!s) { alert('Vul een startdatum in.'); return; }
+  cfg = { start: s, len: parseInt(document.getElementById('s-len').value)||28, name: document.getElementById('s-name').value };
+  saveToUrl();
+  document.getElementById('screenSetup').classList.remove('active');
+  document.getElementById('screenMain').classList.add('active');
+  initMain();
+}
+
+function initMain() {
+  const today = new Date();
+  const dn = getDayNum(today);
+  const ph = getPhase(dn);
+  const name = cfg.name ? cfg.name + ', ' : '';
+  document.getElementById('ov-title').textContent = name + 'dag ' + dn + ' van je cyclus';
+  document.getElementById('ov-sub').textContent = 'Cyclus van '+(cfg.len||28)+' dagen · gestart '+new Date(cfg.start).toLocaleDateString('nl-NL',{day:'numeric',month:'long',year:'numeric'});
+  const pill = document.getElementById('ov-pill');
+  pill.textContent = PHASE_LABELS[ph];
+  pill.style.background = phLight(ph);
+  pill.style.color = phColor(ph);
+  renderGrid();
+  selectDayOv(dn);
+  setupLogNav();
+  if (document.getElementById('set-start')) {
+    document.getElementById('set-start').value = cfg.start;
+    document.getElementById('set-len').value = cfg.len||28;
+    document.getElementById('set-name').value = cfg.name||'';
+  }
+}
+
+function renderGrid() {
+  const grid = document.getElementById('phaseGrid');
+  grid.innerHTML = '';
+  const len = cfg.len||28;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayDN = getDayNum(today);
+  for (let d = 1; d <= len; d++) {
+    const ph = getPhase(d);
+    const log = logs[d];
+    const cell = document.createElement('div');
+    cell.className = 'day-dot'+(d===todayDN?' today':'');
+    cell.style.background = phLight(ph);
+    const mi = log && log.mood ? MOODS[log.mood] : '';
+    cell.innerHTML = `<span class="dn" style="color:${phColor(ph)};filter:brightness(.7);">${d}</span><span class="di">${mi}</span>`;
+    cell.onclick = () => { document.querySelectorAll('.day-dot').forEach(x=>x.classList.remove('selected')); cell.classList.add('selected'); selectDayOv(d); };
+    grid.appendChild(cell);
+  }
+}
+
+function selectDayOv(d) {
+  const ph = getPhase(d);
+  const tips = PHASE_TIPS[ph];
+  let html = `<div class="phase-info" style="background:${phLight(ph)};border-color:transparent;">
+    <div class="phase-info-title" style="color:${phColor(ph)};">Dag ${d} — ${PHASE_LABELS[ph]}</div>`;
+  tips.forEach(t => { html += `<div class="tip-item"><span class="tip-ico">${t.i}</span><span class="tip-txt">${t.t}</span></div>`; });
+  const log = logs[d];
+  if (log) {
+    html += `<div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border);">
+      <div style="font-size:10px;font-weight:500;color:var(--text2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;">Jouw log voor deze dag</div>
+      <div style="font-size:13px;">${log.mood?MOODS[log.mood]+' ':''} ${log.energy?ENERGIES[log.energy]+' ':''} gewrichtspijn: ${log.joint||0}/10 · vermoeidheid: ${log.fatigue||0}/10 · slaap: ${log.sleep||'-'}/10</div>`;
+    if (log.syms && log.syms.length) html += `<div style="margin-top:6px;">${log.syms.map(s=>`<span class="hist-tag">${s}</span>`).join('')}</div>`;
+    if (log.meds && log.meds.length) html += `<div style="margin-top:5px;font-size:11px;color:var(--text2);">Medicatie: ${log.meds.join(', ')}</div>`;
+    if (log.note) html += `<div style="margin-top:5px;font-size:11px;color:var(--text2);font-style:italic;">"${log.note.substring(0,120)}${log.note.length>120?'...':''}"</div>`;
+    html += '</div>';
+  }
+  html += `</div><button class="save-btn" style="font-size:12px;padding:8px 18px;margin-top:2px;" onclick="goLogDay(${d})">Dag ${d} invullen →</button>`;
+  document.getElementById('ovDayInfo').innerHTML = html;
+}
+
+function setupLogNav() {
+  const today = new Date();
+  const todayDN = getDayNum(today);
+  const container = document.getElementById('navDayBtns');
+  container.innerHTML = '';
+  for (let i = -2; i <= 2; i++) {
+    const dn = ((todayDN - 1 + i + (cfg.len||28)) % (cfg.len||28)) + 1;
+    const btn = document.createElement('button');
+    btn.className = 'nav-day-btn'+(i===0?' active-nav':'');
+    btn.textContent = i===0 ? 'Vandaag (dag '+dn+')' : (i<0?i+' dag'+(Math.abs(i)>1?'en':''):'+'+i+' dag'+(i>1?'en':''))+' (dag '+dn+')';
+    btn.onclick = () => { document.querySelectorAll('.nav-day-btn').forEach(b=>b.classList.remove('active-nav')); btn.classList.add('active-nav'); setupLogForm(dn); };
+    container.appendChild(btn);
+  }
+  setupLogForm(todayDN);
+}
+
+function goLogDay(d) { showTab('log'); setupLogForm(d); document.querySelectorAll('.nav-day-btn').forEach(b=>b.classList.remove('active-nav')); }
+
+function setupLogForm(d) {
+  currentLogDay = d;
+  const ph = getPhase(d);
+  const start = new Date(cfg.start); start.setDate(start.getDate()+d-1);
+  const ds = start.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('log-title').textContent = 'Dag '+d+' — '+ds;
+  document.getElementById('log-sub').textContent = PHASE_LABELS[ph];
+  const pill = document.getElementById('log-pill');
+  pill.textContent = PHASE_LABELS[ph];
+  pill.style.background = phLight(ph);
+  pill.style.color = phColor(ph);
+  const log = logs[d]||{};
+  currentMood = log.mood||0; currentEnergy = log.energy||0;
+  currentSyms = new Set(log.syms||[]);
+  currentMeds = new Set(log.meds||[]);
+  document.querySelectorAll('#moodRow .mood-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.v)===currentMood));
+  document.querySelectorAll('#energyRow .mood-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.v)===currentEnergy));
+  [['joint','jv',0],['fat','fv',0],['head','hv',0],['sleep','sv',5],['prod','pv',5]].forEach(([id,vid,def],i)=>{
+    const keys=['joint','fatigue','headache','sleep','productivity'];
+    const val=log[keys[i]]!==undefined?log[keys[i]]:def;
+    document.getElementById('sl-'+id).value=val;
+    document.getElementById(vid).textContent=val;
+  });
+  document.getElementById('noteArea').value=log.note||'';
+  const sc=document.getElementById('symCloud'); sc.innerHTML='';
+  SYMPTOMS.forEach(s=>{
+    const btn=document.createElement('button');
+    btn.className='sym-tag'+(currentSyms.has(s)?' active':'');
+    btn.textContent=s;
+    btn.onclick=()=>{currentSyms.has(s)?currentSyms.delete(s):currentSyms.add(s);btn.classList.toggle('active');};
+    sc.appendChild(btn);
+  });
+  const mg=document.getElementById('medGrid'); mg.innerHTML='';
+  MEDS.forEach(m=>{
+    const div=document.createElement('div');
+    div.className='med-check'+(currentMeds.has(m)?' active':'');
+    div.innerHTML=`<div class="mc-dot" style="${currentMeds.has(m)?'background:var(--text)':''}"></div><span>${m}</span>`;
+    div.onclick=()=>{
+      currentMeds.has(m)?currentMeds.delete(m):currentMeds.add(m);
+      div.classList.toggle('active');
+      div.querySelector('.mc-dot').style.background=div.classList.contains('active')?'var(--text)':'';
+    };
+    mg.appendChild(div);
+  });
+}
+
+function setMood(v) { currentMood=v; document.querySelectorAll('#moodRow .mood-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.v)===v)); }
+function setEnergy(v) { currentEnergy=v; document.querySelectorAll('#energyRow .mood-btn').forEach(b=>b.classList.toggle('active',parseInt(b.dataset.v)===v)); }
+
+function saveLog() {
+  if (!currentLogDay) return;
+  logs[currentLogDay] = {
+    mood:currentMood, energy:currentEnergy,
+    joint:parseInt(document.getElementById('sl-joint').value),
+    fatigue:parseInt(document.getElementById('sl-fat').value),
+    headache:parseInt(document.getElementById('sl-head').value),
+    sleep:parseInt(document.getElementById('sl-sleep').value),
+    productivity:parseInt(document.getElementById('sl-prod').value),
+    syms:Array.from(currentSyms),
+    meds:Array.from(currentMeds),
+    note:document.getElementById('noteArea').value,
+    ts:Date.now()
+  };
+  saveToUrl();
+  renderGrid();
+  const lbl=document.getElementById('savedLabel');
+  lbl.style.display='inline';
+  setTimeout(()=>lbl.style.display='none',4000);
+}
+
+function renderInsights() {
+  const keys=Object.keys(logs).map(Number).filter(k=>logs[k]);
+  if (keys.length<3){document.getElementById('insightsContent').innerHTML='<div class="empty-state">Log minimaal 3 dagen om inzichten te zien.</div>';return;}
+  const withMood=keys.filter(k=>logs[k].mood);
+  const avgMood=withMood.length?(withMood.reduce((a,k)=>a+logs[k].mood,0)/withMood.length).toFixed(1):'-';
+  const avgJoint=(keys.reduce((a,k)=>a+(logs[k].joint||0),0)/keys.length).toFixed(1);
+  const avgSleep=(keys.reduce((a,k)=>a+(logs[k].sleep||5),0)/keys.length).toFixed(1);
+  const avgProd=(keys.reduce((a,k)=>a+(logs[k].productivity||5),0)/keys.length).toFixed(1);
+  const symCount={};
+  keys.forEach(k=>(logs[k].syms||[]).forEach(s=>{symCount[s]=(symCount[s]||0)+1;}));
+  const topSyms=Object.entries(symCount).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  const maxSym=topSyms[0]?topSyms[0][1]:1;
+  const phData={mens:{m:[],j:[]},fol:{m:[],j:[]},ovu:{m:[],j:[]},lut:{m:[],j:[]},pmdd:{m:[],j:[]}};
+  keys.forEach(k=>{const ph=getPhase(k);if(logs[k].mood)phData[ph].m.push(logs[k].mood);phData[ph].j.push(logs[k].joint||0);});
+  const phMood=Object.entries(phData).map(([ph,d])=>({ph,avg:d.m.length?d.m.reduce((a,b)=>a+b,0)/d.m.length:0}));
+  const maxPh=Math.max(...phMood.map(x=>x.avg),1);
+  const phPain=Object.entries(phData).map(([ph,d])=>({ph,avg:d.j.length?d.j.reduce((a,b)=>a+b,0)/d.j.length:0}));
+  const maxPa=Math.max(...phPain.map(x=>x.avg),1);
+  let html=`<div class="insights-grid">
+    <div class="stat-card"><div class="stat-label">Gem. stemming</div><div class="stat-val">${avgMood}<span style="font-size:15px;"> /5</span></div><div class="stat-sub">${avgMood!=='-'?MOODS[Math.round(parseFloat(avgMood))]||'':''}</div></div>
+    <div class="stat-card"><div class="stat-label">Gem. gewrichtspijn</div><div class="stat-val">${avgJoint}<span style="font-size:15px;"> /10</span></div></div>
+    <div class="stat-card"><div class="stat-label">Gem. slaapkwaliteit</div><div class="stat-val">${avgSleep}<span style="font-size:15px;"> /10</span></div></div>
+    <div class="stat-card"><div class="stat-label">Gem. productiviteit</div><div class="stat-val">${avgProd}<span style="font-size:15px;"> /10</span></div></div>
+    <div class="stat-card"><div class="stat-label">Dagen gelogd</div><div class="stat-val">${keys.length}</div><div class="stat-sub">van ${cfg.len||28} dagen</div></div>
+  </div>`;
+  html+=`<div class="chart-wrap"><div class="chart-title">Gemiddelde stemming per fase</div><div class="bar-chart">`;
+  phMood.forEach(({ph,avg})=>{const h=avg?Math.max(Math.round((avg/maxPh)*78),4):4;html+=`<div class="bar" style="height:${h}px;background:var(--${ph});opacity:.85;"></div>`;});
+  html+='</div><div class="bar-labels">';
+  phMood.forEach(({ph})=>{html+=`<div class="bar-lbl" style="color:var(--${ph});">${{mens:'Men',fol:'Fol',ovu:'Ovu',lut:'Lut',pmdd:'PMDD'}[ph]}</div>`;});
+  html+='</div></div>';
+  html+=`<div class="chart-wrap"><div class="chart-title">Gemiddelde gewrichtspijn per fase</div><div class="bar-chart">`;
+  phPain.forEach(({ph,avg})=>{const h=avg?Math.max(Math.round((avg/maxPa)*78),4):4;html+=`<div class="bar" style="height:${h}px;background:var(--${ph});opacity:.85;"></div>`;});
+  html+='</div><div class="bar-labels">';
+  phPain.forEach(({ph})=>{html+=`<div class="bar-lbl" style="color:var(--${ph});">${{mens:'Men',fol:'Fol',ovu:'Ovu',lut:'Lut',pmdd:'PMDD'}[ph]}</div>`;});
+  html+='</div></div>';
+  if (topSyms.length){
+    html+=`<div class="chart-wrap"><div class="chart-title">Meest voorkomende symptomen</div><div class="freq-list">`;
+    topSyms.forEach(([s,c])=>{html+=`<div class="freq-item"><span class="freq-name">${s}</span><div class="freq-bar-wrap"><div class="freq-bar" style="width:${Math.round(c/maxSym*100)}%"></div></div><span class="freq-count">${c}×</span></div>`;});
+    html+='</div></div>';
+  }
+  document.getElementById('insightsContent').innerHTML=html;
+}
+
+function renderHistory() {
+  const keys=Object.keys(logs).map(Number).filter(k=>logs[k]).sort((a,b)=>b-a);
+  if (!keys.length){document.getElementById('histContent').innerHTML='<div class="empty-state">Nog geen logs.</div>';return;}
+  let html='<div class="hist-list">';
+  keys.forEach(d=>{
+    const l=logs[d];
+    const start=new Date(cfg.start);start.setDate(start.getDate()+d-1);
+    const ds=start.toLocaleDateString('nl-NL',{weekday:'short',day:'numeric',month:'short'});
+    const ph=getPhase(d);
+    html+=`<div class="hist-item" onclick="goLogDay(${d})">
+      <div class="hist-head">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="hist-date">Dag ${d} — ${ds}</span>
+          <span style="font-size:10px;padding:2px 8px;border-radius:100px;background:${phLight(ph)};color:${phColor(ph)};">${PHASE_LABELS[ph]}</span>
+        </div>
+        <span class="hist-mood">${l.mood?MOODS[l.mood]:''} ${l.energy?ENERGIES[l.energy]:''}</span>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:4px;">Gewricht: ${l.joint||0}/10 · Moe: ${l.fatigue||0}/10 · Slaap: ${l.sleep||'-'}/10</div>`;
+    if(l.syms&&l.syms.length)html+=`<div style="margin-bottom:4px;">${l.syms.map(s=>`<span class="hist-tag">${s}</span>`).join('')}</div>`;
+    if(l.meds&&l.meds.length)html+=`<div style="font-size:11px;color:var(--text2);margin-bottom:3px;">💊 ${l.meds.join(' · ')}</div>`;
+    if(l.note)html+=`<div class="hist-note">"${l.note.substring(0,100)}${l.note.length>100?'...':''}"</div>`;
+    html+='</div>';
+  });
+  html+='</div>';
+  document.getElementById('histContent').innerHTML=html;
+}
+
+function showTab(t) {
+  const all=['overview','log','insights','history','settings'];
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',all[i]===t));
+  all.forEach(id=>{document.getElementById('tab-'+id).style.display=id===t?'block':'none';});
+  if(t==='insights')renderInsights();
+  if(t==='history')renderHistory();
+  if(t==='log')setupLogNav();
+}
+
+function updateSetting(k,v) {
+  if(k==='start')cfg.start=v;
+  else if(k==='len')cfg.len=v;
+  else if(k==='name')cfg.name=v;
+  saveToUrl();
+  initMain();
+}
+
+function resetAll() {
+  if(!confirm('Weet je zeker dat je alle data wilt verwijderen?'))return;
+  window.location.hash='';
+  location.reload();
+}
+
+window.addEventListener('load',()=>{
+  const loaded = loadFromUrl();
+  if(loaded){
+    document.getElementById('screenSetup').classList.remove('active');
+    document.getElementById('screenMain').classList.add('active');
+    initMain();
+  } else {
+    document.getElementById('s-start').value=new Date().toISOString().split('T')[0];
+  }
+});
+</script>
+</body>
+</html>
